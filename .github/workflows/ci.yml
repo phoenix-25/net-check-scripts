@@ -1,0 +1,47 @@
+name: Run Network Check Scripts CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Detect OS (RHEL or Ubuntu) and install dependencies
+      run: |
+        set -e
+        echo "Detecting OS from /etc/os-release..."
+        source /etc/os-release
+
+        echo "Detected OS: $ID"
+
+        case "$ID" in
+          ubuntu|debian)
+            echo "Installing dependencies for Debian/Ubuntu..."
+            sudo apt-get update
+            sudo apt-get install -y python3 python3-pip shellcheck traceroute curl nmap flake8
+            ;;
+          centos|rhel|fedora)
+            echo "Installing dependencies for RHEL/CentOS/Fedora..."
+            sudo yum install -y python3 python3-pip ShellCheck traceroute curl nmap
+            pip3 install flake8
+            ;;
+          *)
+            echo "Unsupported OS: $ID"
+            exit 1
+            ;;
+        esac
+
+    - name: Make test runner executable
+      run: chmod +x ./run_tests.sh
+
+    - name: Run test suite
+      run: ./run_tests.sh
