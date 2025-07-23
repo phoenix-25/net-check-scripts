@@ -1,47 +1,50 @@
-name: Run Network Check Scripts CI
+name: Net Check CI
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Choose CI execution mode'
+        required: true
+        default: 'bash'
+        type: choice
+        options:
+          - bash
+          - ansible
+          - docker
 
 jobs:
-  test:
+  run-ci:
+    name: Run ${{ github.event.inputs.mode }} CI
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Detect OS (RHEL or Ubuntu) and install dependencies
-      run: |
-        set -e
-        echo "Detecting OS from /etc/os-release..."
-        source /etc/os-release
+      - name: Set up Python (if needed)
+        if: ${{ github.event.inputs.mode != 'docker' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
 
-        echo "Detected OS: $ID"
+      - name: Install Ansible (only for ansible mode)
+        if: ${{ github.event.inputs.mode == 'ansible' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
 
-        case "$ID" in
-          ubuntu|debian)
-            echo "Installing dependencies for Debian/Ubuntu..."
-            sudo apt-get update
-            sudo apt-get install -y python3 python3-pip shellcheck traceroute curl nmap flake8
-            ;;
-          centos|rhel|fedora)
-            echo "Installing dependencies for RHEL/CentOS/Fedora..."
-            sudo yum install -y python3 python3-pip ShellCheck traceroute curl nmap
-            pip3 install flake8
-            ;;
-          *)
-            echo "Unsupported OS: $ID"
-            exit 1
-            ;;
-        esac
+      - name: Run Bash Scripts
+        if: ${{ github.event.inputs.mode == 'bash' }}
+        run: ./run_tests.sh
 
-    - name: Make test runner executable
-      run: chmod +x ./run_tests.sh
+      - name: Run Ansible Playbook
+        if: ${{ github.event.inputs.mode == 'ansible' }}
+        run: |
+          ansible-playbook ansible/run_scripts.yml -i localhost, -c local
 
-    - name: Run test suite
-      run: ./run_tests.sh
+      - name: Build and Run Docker container
+        if: ${{ github.event.inputs.mode == 'docker' }}
+        run: |
+          docker build -t net-check-scripts .
+          docker run --rm net-check-scripts

@@ -1,0 +1,53 @@
+- name: Run network diagnostics scripts
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    ping_target: "1.1.1.1"
+    ping_count: "3"
+    http_url: "https://www.google.com"
+    tcp_host: "1.1.1.1"
+    tcp_port: "80"
+    base_dir: "{{ playbook_dir }}/../scripts"
+
+  tasks:
+
+    - name: Ensure log and report directories exist
+      file:
+        path: "{{ playbook_dir }}/../{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - logs
+        - reports
+
+    - name: Run ping_test.sh
+      command: >
+        bash {{ base_dir }}/ping_test.sh {{ ping_target }} {{ ping_count }}
+      register: ping_output
+      ignore_errors: yes
+
+    - name: Show ping results
+      debug:
+        var: ping_output.stdout_lines
+
+    - name: Run http_inspect.sh
+      command: >
+        bash {{ base_dir }}/http_inspect.sh {{ http_url }}
+      register: http_output
+      ignore_errors: yes
+
+    - name: Show HTTP inspect results
+      debug:
+        var: http_output.stdout_lines
+
+    - name: Run tcp_latency_trace.py
+      command: >
+        python3 {{ base_dir }}/tcp_latency_trace.py {{ tcp_host }} {{ tcp_port }}
+      register: tcp_output
+      ignore_errors: yes
+
+    - name: Show TCP latency results
+      debug:
+        var: tcp_output.stdout_lines
