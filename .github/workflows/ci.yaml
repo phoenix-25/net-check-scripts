@@ -1,0 +1,45 @@
+name: CI - Net Check Scripts
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python 3.x
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y curl iputils-ping dnsutils net-tools nmap traceroute shellcheck ansible
+        echo "Installed system tools"
+
+    - name: Install Python dependencies
+      run: |
+        python3 -m pip install --upgrade pip
+        pip install flake8
+        if [ -f requirements.txt ]; then
+          pip install -r requirements.txt
+        fi
+
+    - name: Make scripts executable
+      run: chmod +x scripts/*.sh run_tests.sh
+
+    - name: Run bash & python tests
+      run: ./run_tests.sh
+
+    - name: (Optional) Run ansible playbook check
+      if: false  # Set to true later when playbooks exist
+      run: |
+        ansible-playbook ansible/test-playbook.yml
