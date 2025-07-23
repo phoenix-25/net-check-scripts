@@ -1,0 +1,38 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Logs
+logs/
+*.log
+
+# Reports
+reports/
+*.csv
+*.txt
+*.json
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Editor/project files
+.vscode/
+.idea/
+*.swp
+
+# Python test coverage / pytest
+.coverage
+.cache/
+pytest_cache/
+nosetests.xml
+coverage.xml
+
+# Ignore run_tests output artifacts
+test_output_*.*
