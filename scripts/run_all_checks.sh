@@ -45,8 +45,7 @@ echo
 
 # === 1. PING TEST ===
 log "--- Running ping_test.sh ---"
-PING_OUTPUT=$(bash "$BASE_DIR/ping_test.sh" "$PING_TARGET" "$PING_COUNT" 2>&1)
-if [ $? -ne 0 ]; then
+if ! PING_OUTPUT=$(bash "$BASE_DIR/ping_test.sh" "$PING_TARGET" "$PING_COUNT" 2>&1); then
   log "ERROR: ping_test.sh failed"
   log "$PING_OUTPUT"
   PING_AVG="ERROR"
@@ -57,8 +56,7 @@ fi
 
 # === 2. HTTP INSPECTION ===
 log "--- Running http_inspect.sh ---"
-HTTP_OUTPUT=$(bash "$BASE_DIR/http_inspect.sh" "$HTTP_URL" 2>&1)
-if [ $? -ne 0 ]; then
+if ! HTTP_OUTPUT=$(bash "$BASE_DIR/http_inspect.sh" "$HTTP_URL" 2>&1); then
   log "ERROR: http_inspect.sh failed"
   log "$HTTP_OUTPUT"
   HTTP_STATUS="ERROR"
@@ -69,8 +67,7 @@ fi
 
 # === 3. TCP LATENCY TEST ===
 log "--- Running tcp_latency_trace.py ---"
-TCP_OUTPUT=$(python3 "$BASE_DIR/tcp_latency_trace.py" "$TCP_HOST" "$TCP_PORT" 2>&1)
-if [ $? -ne 0 ]; then
+if ! TCP_OUTPUT=$(python3 "$BASE_DIR/tcp_latency_trace.py" "$TCP_HOST" "$TCP_PORT" 2>&1); then
   log "ERROR: tcp_latency_trace.py failed"
   log "$TCP_OUTPUT"
   TCP_SUMMARY="ERROR"
