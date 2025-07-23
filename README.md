@@ -19,7 +19,8 @@ The scripts are designed to be simple, modular, and easy to run independently or
 - TCP latency tracing  
 - DNS troubleshooting  
 - Port scanning (basic)  
-- Simple bottleneck detection and reporting  
+- Simple bottleneck detection and reporting
+- Multiple execution modes: Bash, Ansible, Docker 
 
 ---
 
@@ -42,45 +43,61 @@ chmod +x *.py
 ---
 
 ## Usage
+You can run the scripts in three ways:
+1. Standalone (Bash/Python)
 
-Each script can be run standalone. Examples:
+Each script can be run independently. Examples:
 
-```bash
-./ping_test.sh 8.8.8.8 20
-./http_inspect.sh https://example.com
-python3 tcp_latency_trace.py example.com 443
-```
+./scripts/ping_test.sh 8.8.8.8 20
+./scripts/http_inspect.sh https://example.com
+python3 scripts/tcp_latency_trace.py example.com 443
 
-You can also run all checks and generate summary reports with:
+To run all checks:
 
-```bash
-./run_all_checks.sh
-```
+./scripts/run_all_checks.sh
 
-For detailed usage and options, see the `docs/usage.md` file.
+2. Using Ansible
 
----
+Run the included playbook (localhost execution):
+
+ansible-playbook ansible/run_scripts.yml -i localhost, -c local
+
+3. Using Docker
+
+Build and run the container:
+
+docker build -t net-check-scripts .
+docker run --rm net-check-scripts
+
+## CI Integration (GitHub Actions)
+
+This project includes a GitHub Actions workflow (.github/workflows/ci.yml) that supports all three execution modes.
+
+You can choose the desired mode when triggering the workflow manually:
+
+    bash – run native scripts
+
+    ansible – use the Ansible playbook
+
+    docker – run inside a container
 
 ## Logs and Reports
 
-The `logs/` and `reports/` directories are created automatically at runtime to store diagnostic output and summary files.
+The logs/ and reports/ directories are created automatically at runtime to store diagnostic output and summary files.
 
 These folders contain:
 
-* Raw logs from each check run (inside `logs/`)
-* Summary reports in `.txt` and `.csv` format (inside `reports/`)
+    Raw logs from each check run (inside logs/)
 
-To ensure these folders are tracked in Git but remain empty in the repository, we use `.gitkeep` placeholder files.
+    Summary reports in .txt and .csv format (inside reports/)
 
-**Note:** Actual `.log`, `.txt`, and `.csv` files are excluded from Git via `.gitignore`.
+To ensure these folders are tracked in Git but remain empty in the repository, we use .gitkeep placeholder files.
 
----
+Note: Actual .log, .txt, and .csv files are excluded from Git via .gitignore.
 
 ## Contributing
 
-Contributions are welcome! Please see `CONTRIBUTING.md` for guidelines.
-
----
+Contributions are welcome! Please see CONTRIBUTING.md for guidelines.
 
 ## License
 
