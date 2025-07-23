@@ -1,89 +1,109 @@
 #!/bin/bash
 
-# Directory report
-REPORT_DIR="../reports"
-mkdir -p "$REPORT_DIR"
+# =============================
+# Network Diagnostics Launcher
+# =============================
 
-# Timestamp per report
-TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
+# === DEFAULT PARAMETERS ===
 
-# Target di default (modifica qui se vuoi)
-PING_TARGET="8.8.8.8"
-PING_COUNT=5
-HTTP_URL="https://www.google.com"
-TCP_HOST="8.8.8.8"
-TCP_PORT=80
+PING_TARGET="${1:-8.8.8.8}"
+PING_COUNT="${2:-5}"
+HTTP_URL="${3:-https://www.google.com}"
+TCP_HOST="${4:-8.8.8.8}"
+TCP_PORT="${5:-80}"
 
-# Permette di passare parametri opzionali in ordine: ping_target ping_count http_url tcp_host tcp_port
-if [ ! -z "$1" ]; then PING_TARGET="$1"; fi
-if [ ! -z "$2" ]; then PING_COUNT="$2"; fi
-if [ ! -z "$3" ]; then HTTP_URL="$3"; fi
-if [ ! -z "$4" ]; then TCP_HOST="$4"; fi
-if [ ! -z "$5" ]; then TCP_PORT="$5"; fi
+# === DIRECTORIES ===
 
-echo "Running network checks..."
-echo "Ping target: $PING_TARGET ($PING_COUNT pings)"
-echo "HTTP URL: $HTTP_URL"
-echo "TCP host/port: $TCP_HOST:$TCP_PORT"
-echo
+BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
+LOG_DIR="$BASE_DIR/../logs"
+REPORT_DIR="$BASE_DIR/../reports"
 
-# Funzione per eseguire uno script bash e catturare output
-run_script() {
-  local cmd=$1
-  local output
-  output=$(eval "$cmd" 2>&1)
-  echo "$output"
+mkdir -p "$LOG_DIR" "$REPORT_DIR"
+
+# === TIMESTAMPS & FILES ===
+
+NOW=$(date +'%Y-%m-%d %H:%M:%S')
+STAMP=$(date +'%Y%m%d_%H%M%S')
+LOG_FILE="$LOG_DIR/run_all_checks_$STAMP.log"
+TXT_REPORT="$REPORT_DIR/report_$STAMP.txt"
+CSV_REPORT="$REPORT_DIR/report_$STAMP.csv"
+
+# === LOGGING FUNCTION ===
+
+log() {
+  echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
-# 1) Ping test
-PING_RESULT=$(run_script "./ping_test.sh $PING_TARGET $PING_COUNT")
+# === START ===
 
-# Estrazione tempo medio ping da ping_test.sh (supponendo output tipo: rtt min/avg/max/mdev = 12.345/23.456/45.678/5.432 ms)
-PING_AVG=$(echo "$PING_RESULT" | grep -E 'rtt|round-trip' | awk -F'/' '{print $5}' | head -n1)
+log "== Starting network diagnostics =="
+log "Parameters:"
+log "- Ping: $PING_TARGET ($PING_COUNT packets)"
+log "- HTTP: $HTTP_URL"
+log "- TCP: $TCP_HOST:$TCP_PORT"
+echo
 
-# 2) HTTP inspect
-HTTP_RESULT=$(run_script "./http_inspect.sh $HTTP_URL")
+# === 1. PING TEST ===
+log "--- Running ping_test.sh ---"
+PING_OUTPUT=$(bash "$BASE_DIR/ping_test.sh" "$PING_TARGET" "$PING_COUNT" 2>&1)
+if [ $? -ne 0 ]; then
+  log "ERROR: ping_test.sh failed"
+  log "$PING_OUTPUT"
+  PING_AVG="ERROR"
+else
+  log "$PING_OUTPUT"
+  PING_AVG=$(echo "$PING_OUTPUT" | grep -E 'rtt|round-trip' | awk -F'/' '{print $5}' | head -n1)
+fi
 
-# Estrazione HTTP Status code (es. HTTP/1.1 200 OK)
-HTTP_STATUS=$(echo "$HTTP_RESULT" | head -n1 | awk '{print $2}')
+# === 2. HTTP INSPECTION ===
+log "--- Running http_inspect.sh ---"
+HTTP_OUTPUT=$(bash "$BASE_DIR/http_inspect.sh" "$HTTP_URL" 2>&1)
+if [ $? -ne 0 ]; then
+  log "ERROR: http_inspect.sh failed"
+  log "$HTTP_OUTPUT"
+  HTTP_STATUS="ERROR"
+else
+  log "$HTTP_OUTPUT"
+  HTTP_STATUS=$(echo "$HTTP_OUTPUT" | head -n 1 | awk '{print $2}')
+fi
 
-# 3) TCP latency trace (python)
-TCP_RESULT=$(python3 ./tcp_latency_trace.py "$TCP_HOST" "$TCP_PORT")
+# === 3. TCP LATENCY TEST ===
+log "--- Running tcp_latency_trace.py ---"
+TCP_OUTPUT=$(python3 "$BASE_DIR/tcp_latency_trace.py" "$TCP_HOST" "$TCP_PORT" 2>&1)
+if [ $? -ne 0 ]; then
+  log "ERROR: tcp_latency_trace.py failed"
+  log "$TCP_OUTPUT"
+  TCP_SUMMARY="ERROR"
+else
+  log "$TCP_OUTPUT"
+  TCP_SUMMARY=$(echo "$TCP_OUTPUT" | tail -n1)
+fi
 
-# Per il CSV e testo estraiamo una linea significativa da TCP_RESULT, ad esempio l'ultima riga o la latenza media (dipende dal tuo script)
-# Qui prendo l'ultima riga (modifica se serve)
-TCP_SUMMARY=$(echo "$TCP_RESULT" | tail -n1)
-
-# Creazione report testo
-REPORT_TEXT="$REPORT_DIR/report_${TIMESTAMP}.txt"
+# === TEXT REPORT OUTPUT ===
+log "--- Saving text report: $TXT_REPORT ---"
 {
-  echo "Network Check Report - $TIMESTAMP"
-  echo "---------------------------------"
+  echo "Network Check Report - $NOW"
+  echo "=============================="
   echo
-  echo "Ping Test ($PING_TARGET, count=$PING_COUNT):"
-  echo "$PING_RESULT"
+  echo "1) Ping Test to $PING_TARGET ($PING_COUNT packets)"
+  echo "$PING_OUTPUT"
   echo
-  echo "HTTP Inspection ($HTTP_URL):"
-  echo "$HTTP_RESULT"
+  echo "2) HTTP Inspection of $HTTP_URL"
+  echo "$HTTP_OUTPUT"
   echo
-  echo "TCP Latency Trace ($TCP_HOST:$TCP_PORT):"
-  echo "$TCP_RESULT"
-} > "$REPORT_TEXT"
+  echo "3) TCP Latency Test to $TCP_HOST:$TCP_PORT"
+  echo "$TCP_OUTPUT"
+} > "$TXT_REPORT"
 
-echo "Text report saved to $REPORT_TEXT"
-
-# Creazione report CSV
-REPORT_CSV="$REPORT_DIR/report_${TIMESTAMP}.csv"
+# === CSV REPORT OUTPUT ===
+log "--- Saving CSV report: $CSV_REPORT ---"
 {
   echo "timestamp;ping_target;ping_avg_ms;http_url;http_status;tcp_host;tcp_port;tcp_summary"
-  echo "$TIMESTAMP;$PING_TARGET;$PING_AVG;$HTTP_URL;$HTTP_STATUS;$TCP_HOST;$TCP_PORT;\"$TCP_SUMMARY\""
-} > "$REPORT_CSV"
+  echo "$STAMP;$PING_TARGET;$PING_AVG;$HTTP_URL;$HTTP_STATUS;$TCP_HOST;$TCP_PORT;\"$TCP_SUMMARY\""
+} > "$CSV_REPORT"
 
-echo "CSV report saved to $REPORT_CSV"
-
-echo
-echo "Summary:"
-echo "---------------------------------"
-echo "Ping average latency (ms): $PING_AVG"
-echo "HTTP Status code: $HTTP_STATUS"
-echo "TCP summary: $TCP_SUMMARY"
+# === END ===
+log "== Diagnostics completed =="
+log "Reports:"
+log "- Text: $TXT_REPORT"
+log "- CSV:  $CSV_REPORT"
