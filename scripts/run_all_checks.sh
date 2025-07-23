@@ -38,11 +38,21 @@ run_script() {
 # 1) Ping test
 PING_RESULT=$(run_script "./ping_test.sh $PING_TARGET $PING_COUNT")
 
+# Estrazione tempo medio ping da ping_test.sh (supponendo output tipo: rtt min/avg/max/mdev = 12.345/23.456/45.678/5.432 ms)
+PING_AVG=$(echo "$PING_RESULT" | grep -E 'rtt|round-trip' | awk -F'/' '{print $5}' | head -n1)
+
 # 2) HTTP inspect
 HTTP_RESULT=$(run_script "./http_inspect.sh $HTTP_URL")
 
+# Estrazione HTTP Status code (es. HTTP/1.1 200 OK)
+HTTP_STATUS=$(echo "$HTTP_RESULT" | head -n1 | awk '{print $2}')
+
 # 3) TCP latency trace (python)
 TCP_RESULT=$(python3 ./tcp_latency_trace.py "$TCP_HOST" "$TCP_PORT")
+
+# Per il CSV e testo estraiamo una linea significativa da TCP_RESULT, ad esempio l'ultima riga o la latenza media (dipende dal tuo script)
+# Qui prendo l'ultima riga (modifica se serve)
+TCP_SUMMARY=$(echo "$TCP_RESULT" | tail -n1)
 
 # Creazione report testo
 REPORT_TEXT="$REPORT_DIR/report_${TIMESTAMP}.txt"
@@ -62,27 +72,18 @@ REPORT_TEXT="$REPORT_DIR/report_${TIMESTAMP}.txt"
 
 echo "Text report saved to $REPORT_TEXT"
 
-# Creazione report JSON semplice
-REPORT_JSON="$REPORT_DIR/report_${TIMESTAMP}.json"
-cat > "$REPORT_JSON" << EOF
+# Creazione report CSV
+REPORT_CSV="$REPORT_DIR/report_${TIMESTAMP}.csv"
 {
-  "timestamp": "$TIMESTAMP",
-  "ping_test": "$(echo "$PING_RESULT" | jq -R -s .)",
-  "http_inspect": "$(echo "$HTTP_RESULT" | jq -R -s .)",
-  "tcp_latency_trace": "$(echo "$TCP_RESULT" | jq -R -s .)"
-}
-EOF
+  echo "timestamp;ping_target;ping_avg_ms;http_url;http_status;tcp_host;tcp_port;tcp_summary"
+  echo "$TIMESTAMP;$PING_TARGET;$PING_AVG;$HTTP_URL;$HTTP_STATUS;$TCP_HOST;$TCP_PORT;\"$TCP_SUMMARY\""
+} > "$REPORT_CSV"
 
-echo "JSON report saved to $REPORT_JSON"
+echo "CSV report saved to $REPORT_CSV"
 
 echo
 echo "Summary:"
 echo "---------------------------------"
-echo "Ping average latency (ms):"
-echo "$PING_RESULT" | grep -E 'rtt|round-trip' || echo "N/A"
-echo
-echo "HTTP Status line:"
-echo "$HTTP_RESULT" | head -n 1
-echo
-echo "TCP result:"
-echo "$TCP_RESULT"
+echo "Ping average latency (ms): $PING_AVG"
+echo "HTTP Status code: $HTTP_STATUS"
+echo "TCP summary: $TCP_SUMMARY"
