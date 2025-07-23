@@ -6,11 +6,11 @@
 
 # === DEFAULT PARAMETERS ===
 
-PING_TARGET="${1:-8.8.8.8}"
-PING_COUNT="${2:-5}"
+PING_TARGET="${1:-1.1.1.1}"             # Cloudflare DNS (più affidabile del ping a 8.8.8.8)
+PING_COUNT="${2:-4}"                   # Pacchetti multipli per ridurre falsi negativi
 HTTP_URL="${3:-https://www.google.com}"
-TCP_HOST="${4:-8.8.8.8}"
-TCP_PORT="${5:-80}"
+TCP_HOST="${4:-google.com}"            # Risponde su porta 443
+TCP_PORT="${5:-443}"
 
 # === DIRECTORIES ===
 
